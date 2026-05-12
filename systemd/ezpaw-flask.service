@@ -1,0 +1,15 @@
+[Unit]
+Description=ezpaw Flask Web Service
+After=network.target
+
+[Service]
+Type=simple
+# NOTE: Edit WorkingDirectory and ExecStart if ezpaw is installed elsewhere
+WorkingDirectory=%h/ezpaw
+Environment="PATH=%h/ezpaw/.venv/bin"
+ExecStart=%h/ezpaw/.venv/bin/python -m ezpaw.web
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=default.target

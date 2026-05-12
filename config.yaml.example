@@ -1,0 +1,19 @@
+database:
+  host: "localhost"
+  port: 5432
+  name: "ezpaw"
+  user: "postgres"
+
+app:
+  host: "127.0.0.1"
+  port: 5056
+  secret_key: "change-this-in-production"
+
+gpaw:
+  # Adjust to match your GPAW installation
+  ld_library_path: "$HOME/.local/lib"
+
+ezpaw:
+  # Relative to project root
+  output_dir: "output"
+  log_dir: "logs"

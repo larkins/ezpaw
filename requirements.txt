@@ -1,0 +1,6 @@
+gpaw
+ase
+psycopg2-binary
+python-dotenv
+pyyaml
+flask
