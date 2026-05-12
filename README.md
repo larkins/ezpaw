@@ -23,25 +23,19 @@ A lightweight job management interface for [GPAW](https://wiki.fysik.dtu.dk/gpaw
 
 ## Installation
 
-```bash
-git clone https://github.com/<your-username>/ezpaw.git
-cd ezpaw
-python -m venv .venv
-source .venv/bin/activate
-pip install -e .
-```
-
-Set `$PROJECT` in your environment to the ezpaw root directory (alternatively, edit `config.yaml` directly):
+### Quick install (recommended)
 
 ```bash
-export PROJECT="$HOME/ezpaw"
+git clone https://github.com/larkins/ezpaw.git ~/ezpaw
+cd ~/ezpaw
+./install.sh
 ```
 
-Or per-session:
+The installer sets up the venv, installs dependencies, creates the PostgreSQL database, loads the schema, configures `.env` and `config.yaml`, and appends shell environment variables to `~/.bashrc`. See `./install.sh --help` for options (e.g. `--skip-gpaw`, `--skip-db`, `--non-interactive`).
 
-```bash
-PROJECT="$HOME/ezpaw" ezpaw run my_script.py
-```
+### Manual installation
+
+If you prefer to install step by step, or if the installer doesn't cover your platform, follow the instructions in [AGENTS.md](AGENTS.md) (sections 2–6).
 
 ## Configuration
 
@@ -105,6 +99,7 @@ ezpaw/
 │   └── test_si_bandgap.py
 ├── config.yaml.example
 ├── .env.example
+├── install.sh          # Automated installer
 ├── setup.py
 └── requirements.txt
 ```
