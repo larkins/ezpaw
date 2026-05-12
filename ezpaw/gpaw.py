@@ -132,6 +132,46 @@ def _get_caller_script_name() -> str:
 # GPAW wrapper class
 # ---------------------------------------------------------------------------
 
+def _sanitize_arguments(args, kwargs) -> dict[str, Any]:
+    """Convert GPAW constructor arguments to a JSON-serializable dict.
+
+    GPAW objects like PW(), FD() etc. are not JSON-serializable, so we
+    represent them as readable string summaries instead.
+    """
+    safe_args = []
+    for a in args:
+        safe_args.append(_safe_value(a))
+
+    safe_kwargs = {}
+    for k, v in kwargs.items():
+        safe_kwargs[k] = _safe_value(v)
+
+    return {"args": safe_args, "kwargs": safe_kwargs}
+
+
+def _safe_value(v) -> Any:
+    """Recursively convert a value to a JSON-safe representation."""
+    if v is None or isinstance(v, (bool, int, float, str)):
+        return v
+    if isinstance(v, (list, tuple)):
+        return [_safe_value(item) for item in v]
+    if isinstance(v, dict):
+        return {str(k): _safe_value(val) for k, val in v.items()}
+    if isinstance(v, datetime):
+        return v.isoformat()
+    try:
+        import numpy as np
+        if isinstance(v, np.ndarray):
+            return v.tolist()
+        if isinstance(v, (np.integer,)):
+            return int(v)
+        if isinstance(v, (np.floating,)):
+            return float(v)
+    except ImportError:
+        pass
+    return repr(v)
+
+
 class GPAW:
     """
     Thin wrapper around ``gpaw.GPAW`` that logs every run to PostgreSQL.
@@ -174,7 +214,7 @@ class GPAW:
             result = _db_module.create_run(
                 self._conn,
                 script_name=name,
-                arguments={"args": args, "kwargs": kwargs},
+                arguments=_sanitize_arguments(args, kwargs),
             )
             self._run_id = result["id"]
         except Exception as exc:
