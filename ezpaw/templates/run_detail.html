@@ -68,6 +68,9 @@
                         <p><strong>Duration:</strong> {{ "%.2f"|format(run.duration_seconds) if run.duration_seconds else 'N/A' }}s</p>
                     </div>
                     <div class="col-md-6">
+                        <p><strong>KS gap:</strong> {{ "%.4f"|format(run.ks_gap) if run.ks_gap is not none else '—' }} eV</p>
+                        <p><strong>QP gap:</strong> {{ "%.4f"|format(run.qp_gap) if run.qp_gap is not none else '—' }} eV</p>
+                        <p><strong>DxC:</strong> {{ "%.4f"|format(run.dxc) if run.dxc is not none else '—' }} eV</p>
                         {% if run.stdout_path %}
                         <p><strong>Stdout:</strong> <code>{{ run.stdout_path }}</code></p>
                         {% endif %}

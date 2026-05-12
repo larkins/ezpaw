@@ -81,6 +81,27 @@ def _extract_results(calc) -> dict[str, Any]:
     return results
 
 
+def _extract_gllbsc_gaps(calc) -> dict[str, float]:
+    """Extract GLLB-SC band gap values from a completed GPAW calculator.
+
+    Returns a dict with keys 'ks_gap', 'qp_gap', 'dxc' (all in eV),
+    or an empty dict if the calculator is not GLLB-SC or extraction fails.
+    """
+    gaps = {}
+    try:
+        homo, lumo = calc.get_homo_lumo()
+        response = calc.hamiltonian.xc.response
+        dxc_pot = response.calculate_discontinuity_potential(homo, lumo)
+        ks_gap, dxc = response.calculate_discontinuity(dxc_pot)
+        qp_gap = ks_gap + dxc
+        gaps["ks_gap"] = float(ks_gap)
+        gaps["qp_gap"] = float(qp_gap)
+        gaps["dxc"] = float(dxc)
+    except Exception:
+        pass
+    return gaps
+
+
 def _parse_txt_file(path: str | Path | None) -> dict[str, Any]:
     """Extract gap / discontinuity / energy values from a GPAW .txt file."""
     parsed = {}
@@ -241,6 +262,7 @@ class GPAW:
             )
             duration = _time.time() - self._start_time
             results = _extract_results(self._wrapped)
+            gaps = _extract_gllbsc_gaps(self._wrapped)
 
             # Grab txt path from the kwargs or the txt attribute
             if self._txt_file:
@@ -265,6 +287,9 @@ class GPAW:
                         duration_seconds=duration,
                         status="success",
                         results=results,
+                        ks_gap=gaps.get("ks_gap"),
+                        qp_gap=gaps.get("qp_gap"),
+                        dxc=gaps.get("dxc"),
                         stdout_path=txt_file,
                     )
                 except Exception as exc:
@@ -298,6 +323,7 @@ class GPAW:
             self._wrapped.calculate(atoms, *pargs, **pkwargs)
             duration = _time.time() - self._start_time
             results = _extract_results(self._wrapped)
+            gaps = _extract_gllbsc_gaps(self._wrapped)
 
             if self._txt_file:
                 txt_file = os.path.abspath(
@@ -319,6 +345,9 @@ class GPAW:
                         duration_seconds=duration,
                         status="success",
                         results=results,
+                        ks_gap=gaps.get("ks_gap"),
+                        qp_gap=gaps.get("qp_gap"),
+                        dxc=gaps.get("dxc"),
                         stdout_path=txt_file,
                     )
                 except Exception as exc:
@@ -416,8 +445,10 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
         duration = _time.time() - start_time
 
         results: dict[str, Any] = {}
+        gaps: dict[str, float] = {}
         if last_calc is not None:
             results = _extract_results(last_calc._wrapped)
+            gaps = _extract_gllbsc_gaps(last_calc._wrapped)
             txt = getattr(last_calc, "txt", None) or last_calc._wrapped.txt
             if txt:
                 txt = os.path.abspath(os.path.join(os.getcwd(), str(txt)))
@@ -430,6 +461,9 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
             duration_seconds=duration,
             status="success",
             results=results,
+            ks_gap=gaps.get("ks_gap"),
+            qp_gap=gaps.get("qp_gap"),
+            dxc=gaps.get("dxc"),
             stdout_path=str(out_path),
             stderr_path=str(err_path),
         )

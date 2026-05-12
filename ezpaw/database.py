@@ -34,7 +34,8 @@ def get_all_runs(limit=100):
         with conn.cursor() as cur:
             cur.execute(
                 "SELECT id, script_name, arguments, started_at, finished_at, "
-                "duration_seconds, status, results, stdout_path, stderr_path, error_message "
+                "duration_seconds, status, results, ks_gap, qp_gap, dxc, "
+                "stdout_path, stderr_path, error_message "
                 "FROM gpaw_runs ORDER BY started_at DESC LIMIT %s",
                 (limit,),
             )
@@ -49,12 +50,47 @@ def get_all_runs(limit=100):
                     "duration_seconds": r[5],
                     "status": r[6],
                     "results": r[7],
-                    "stdout_path": r[8],
-                    "stderr_path": r[9],
-                    "error_message": r[10],
+                    "ks_gap": r[8],
+                    "qp_gap": r[9],
+                    "dxc": r[10],
+                    "stdout_path": r[11],
+                    "stderr_path": r[12],
+                    "error_message": r[13],
                 }
                 for r in rows
             ]
+
+
+def get_run(run_id):
+    """Fetch a single gpaw run by ID."""
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id, script_name, arguments, started_at, finished_at, "
+                "duration_seconds, status, results, ks_gap, qp_gap, dxc, "
+                "stdout_path, stderr_path, error_message "
+                "FROM gpaw_runs WHERE id = %s",
+                (run_id,),
+            )
+            r = cur.fetchone()
+            if r is None:
+                return None
+            return {
+                "id": r[0],
+                "script_name": r[1],
+                "arguments": r[2],
+                "started_at": r[3],
+                "finished_at": r[4],
+                "duration_seconds": r[5],
+                "status": r[6],
+                "results": r[7],
+                "ks_gap": r[8],
+                "qp_gap": r[9],
+                "dxc": r[10],
+                "stdout_path": r[11],
+                "stderr_path": r[12],
+                "error_message": r[13],
+            }
 
 
 def create_run(conn, script_name, arguments=None):
@@ -71,6 +107,7 @@ def create_run(conn, script_name, arguments=None):
 
 
 def update_run(conn, run_id, status=None, duration_seconds=None, results=None,
+               ks_gap=None, qp_gap=None, dxc=None,
                stdout_path=None, stderr_path=None, error_message=None):
     """Update an existing run record."""
     fields = []
@@ -84,6 +121,15 @@ def update_run(conn, run_id, status=None, duration_seconds=None, results=None,
     if results is not None:
         fields.append("results = %s")
         values.append(Json(results))
+    if ks_gap is not None:
+        fields.append("ks_gap = %s")
+        values.append(ks_gap)
+    if qp_gap is not None:
+        fields.append("qp_gap = %s")
+        values.append(qp_gap)
+    if dxc is not None:
+        fields.append("dxc = %s")
+        values.append(dxc)
     if stdout_path is not None:
         fields.append("stdout_path = %s")
         values.append(stdout_path)
@@ -107,20 +153,24 @@ def update_run(conn, run_id, status=None, duration_seconds=None, results=None,
 
 
 def save_run(script_name, arguments=None, started_at=None, finished_at=None,
-             duration_seconds=None, status=None, results=None, stdout_path=None,
-             stderr_path=None, error_message=None):
+             duration_seconds=None, status=None, results=None,
+             ks_gap=None, qp_gap=None, dxc=None,
+             stdout_path=None, stderr_path=None, error_message=None):
     """Insert a completed run in one call (for backward compatibility)."""
     with get_connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO gpaw_runs
                 (script_name, arguments, started_at, finished_at, duration_seconds,
-                 status, results, stdout_path, stderr_path, error_message)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                 status, results, ks_gap, qp_gap, dxc,
+                 stdout_path, stderr_path, error_message)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id
                 """,
                 (script_name, Json(arguments), started_at, finished_at,
-                 duration_seconds, status, Json(results), stdout_path, stderr_path, error_message),
+                 duration_seconds, status, Json(results),
+                 ks_gap, qp_gap, dxc,
+                 stdout_path, stderr_path, error_message),
             )
             run_id = cur.fetchone()[0]
             conn.commit()

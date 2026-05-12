@@ -134,13 +134,16 @@ def list_runs():
     """List all runs."""
     try:
         runs = database.get_all_runs()
-        print(f"{'ID':<6} {'Script':<30} {'Status':<10} {'Duration':<12} {'Started'}")
-        print("-" * 80)
+        print(f"{'ID':<6} {'Script':<30} {'Status':<10} {'KS gap':>10} {'QP gap':>10} {'DxC':>10} {'Duration':<12} {'Started'}")
+        print("-" * 110)
         for run in runs:
             duration = f"{run['duration_seconds']:.2f}s" if run.get("duration_seconds") else "N/A"
             started = run["started_at"].isoformat() if run.get("started_at") else "N/A"
             status = run.get("status", "unknown")
-            print(f"{run['id']:<6} {run['script_name']:<30} {status:<10} {duration:<12} {started}")
+            ks = f"{run['ks_gap']:.4f}" if run.get("ks_gap") is not None else "—"
+            qp = f"{run['qp_gap']:.4f}" if run.get("qp_gap") is not None else "—"
+            dxc = f"{run['dxc']:.4f}" if run.get("dxc") is not None else "—"
+            print(f"{run['id']:<6} {run['script_name']:<30} {status:<10} {ks:>10} {qp:>10} {dxc:>10} {duration:<12} {started}")
     except Exception as e:
         print(f"Error listing runs: {e}")
         sys.exit(1)

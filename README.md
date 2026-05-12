@@ -104,6 +104,18 @@ ezpaw/
 └── requirements.txt
 ```
 
+## Band Gap Terminology
+
+ezpaw automatically extracts three band-gap–related values from GLLB-SC calculations and stores them in dedicated database columns:
+
+| Column | Term | Description |
+|--------|------|-------------|
+| `ks_gap` | **Kohn-Sham band gap** | The eigenvalue gap between the highest occupied (HOMO) and lowest unoccupied (LUMO) Kohn-Sham orbital energies. This is the bare DFT gap **before** any derivative-discontinuity correction. For Si with GLLB-SC at odd k-points (≥7), expect ~0.7 eV. |
+| `qp_gap` | **Fundamental (quasiparticle) band gap** | The physically observable band gap, computed as `QP_gap = KS_gap + DxC`. This accounts for the derivative discontinuity missing from plain Kohn-Sham eigenvalues. For Si with GLLB-SC at odd k-points, expect ~1.05 eV (close to the experimental ~1.17 eV). |
+| `dxc` | **Exchange-correlation derivative discontinuity** | The GLLB-SC correction term that bridges the Kohn-Sham gap to the quasiparticle gap. It is computed via `response.calculate_discontinuity(dxc_pot)` and represents the derivative discontinuity of the exchange-correlation potential with respect to particle number. For Si with GLLB-SC, expect ~0.34 eV. |
+
+These values are extracted automatically when the wrapped GPAW calculator uses an XC functional that supports the GLLB-SC discontinuity calculation (e.g. `xc='GLLBSC'`). For other functionals, these columns will be `NULL`.
+
 ## License
 
 MIT License — see [LICENSE](LICENSE).
