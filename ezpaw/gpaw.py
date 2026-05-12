@@ -166,13 +166,17 @@ class GPAW:
         self._run_id: int | None = None
         self._start_time: float = _time.time()
         self._txt_file: str | None = kwargs.get("txt", None)
+        self._conn = None
 
         try:
+            self._conn = _db_module.get_connection()
             name = script_name or _get_caller_script_name()
-            self._run_id = _db_module.create_run(
-                name,
+            result = _db_module.create_run(
+                self._conn,
+                script_name=name,
                 arguments={"args": args, "kwargs": kwargs},
             )
+            self._run_id = result["id"]
         except Exception as exc:
             print(f"[ezpaw warning] create_run failed: {exc}", file=sys.stderr)
 
@@ -195,7 +199,6 @@ class GPAW:
             energy = self._wrapped.get_potential_energy(
                 atoms, force_consistent=force_consistent
             )
-            finished_at = datetime.now(timezone.utc)
             duration = _time.time() - self._start_time
             results = _extract_results(self._wrapped)
 
@@ -217,12 +220,12 @@ class GPAW:
             if self._run_id is not None:
                 try:
                     _db_module.update_run(
+                        self._conn,
                         self._run_id,
-                        finished_at=finished_at,
                         duration_seconds=duration,
                         status="success",
                         results=results,
-                        txt_file=txt_file,
+                        stdout_path=txt_file,
                     )
                 except Exception as exc:
                     print(f"[ezpaw warning] update_run failed: {exc}", file=sys.stderr)
@@ -234,8 +237,8 @@ class GPAW:
             if self._run_id is not None:
                 try:
                     _db_module.update_run(
+                        self._conn,
                         self._run_id,
-                        finished_at=datetime.now(timezone.utc),
                         duration_seconds=_time.time() - self._start_time,
                         status="failed",
                         error_message=f"{type(exc).__name__}: {exc}",
@@ -253,7 +256,6 @@ class GPAW:
         txt_file = None
         try:
             self._wrapped.calculate(atoms, *pargs, **pkwargs)
-            finished_at = datetime.now(timezone.utc)
             duration = _time.time() - self._start_time
             results = _extract_results(self._wrapped)
 
@@ -272,12 +274,12 @@ class GPAW:
             if self._run_id is not None:
                 try:
                     _db_module.update_run(
+                        self._conn,
                         self._run_id,
-                        finished_at=finished_at,
                         duration_seconds=duration,
                         status="success",
                         results=results,
-                        txt_file=txt_file,
+                        stdout_path=txt_file,
                     )
                 except Exception as exc:
                     print(f"[ezpaw warning] update_run failed: {exc}", file=sys.stderr)
@@ -286,8 +288,8 @@ class GPAW:
             if self._run_id is not None:
                 try:
                     _db_module.update_run(
+                        self._conn,
                         self._run_id,
-                        finished_at=datetime.now(timezone.utc),
                         duration_seconds=_time.time() - self._start_time,
                         status="failed",
                         error_message=f"{type(exc).__name__}: {exc}",
@@ -341,17 +343,21 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
     _real_gpaw_mod = sys.modules.get("gpaw")
     run_id = None
     last_calc: GPAW | None = None
+    conn = None
 
     try:
         # Capture stdout / stderr
         sys.stdout = open(out_path, "w", buffering=1)
         sys.stderr = open(err_path, "w", buffering=1)
 
-        # Create the DB row
-        run_id = _db_module.create_run(
-            script_path.name,
+        # Open a database connection and create the run row
+        conn = _db_module.get_connection()
+        result = _db_module.create_run(
+            conn,
+            script_name=script_path.name,
             arguments={"script": str(script_path)},
         )
+        run_id = result["id"]
 
         # Execute the script in an isolated namespace
         ns: dict[str, Any] = {"__name__": "__ezpaw_script__"}
@@ -367,7 +373,6 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
             if isinstance(val, GPAW):
                 last_calc = val
 
-        finished_at = datetime.now(timezone.utc)
         duration = _time.time() - start_time
 
         results: dict[str, Any] = {}
@@ -380,8 +385,8 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
                 results.update(_parse_txt_file(txt))
 
         _db_module.update_run(
+            conn,
             run_id,
-            finished_at=finished_at,
             duration_seconds=duration,
             status="success",
             results=results,
@@ -395,8 +400,8 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
         if run_id is not None:
             try:
                 _db_module.update_run(
+                    conn,
                     run_id,
-                    finished_at=datetime.now(timezone.utc),
                     duration_seconds=_time.time() - start_time,
                     status="failed",
                     error_message=f"{type(exc).__name__}: {exc}",
@@ -423,3 +428,9 @@ def run(script_path: str | Path, **kwargs) -> dict[str, Any]:
             except Exception:
                 pass
             sys.stderr = orig_err
+        # Close the database connection
+        if conn is not None:
+            try:
+                _db_module.close_connection(conn)
+            except Exception:
+                pass
